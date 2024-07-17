@@ -16,6 +16,10 @@
 #include <windows.h>
 #endif
 
+// Declaration of mergesort
+typedef int (*cmp_t)(const void *, const void *);
+int mergesort(void *base, size_t nmemb, size_t size, cmp_t cmp);
+
 // Positions are 8-bit integers with 4 bits each for y, x.
 enum {
 
