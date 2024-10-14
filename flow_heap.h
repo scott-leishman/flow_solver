@@ -1,51 +1,76 @@
 #ifndef FLOW_HEAP_H
 #define FLOW_HEAP_H
 
+#include <queue>
 #include "game_state.h"
 
-// Search node for A* / BFS.
-typedef struct tree_node_struct {
-  game_state_t state;              // Current game state
-  uint64_t cost_to_come;             // Cost to come (ignored for BFS)
-  uint64_t cost_to_go;               // Heuristic cost (ignored for BFS)
-  struct tree_node_struct* parent; // Parent of this node (may be NULL)
-} tree_node_t;
+class FlowHeap {
+public:
+  virtual void enqueue(tree_node_t* node) = 0;
+  virtual tree_node_t* dequeue() = 0;
+  virtual bool empty() const = 0;
+  virtual const tree_node_t* peek() const = 0;
+protected:
+  FlowHeap(size_t capacity); //Only subclasses can create this object
+  virtual ~FlowHeap() = default;
+  
+  size_t _capacity;
+};
 
-// Strategy is to pre-allocate a big block of nodes in advance, and
-// hand them out in order.
-typedef struct node_storage_struct {
-  tree_node_t* start; // Allocated block
-  size_t capacity;    // How many nodes did we allocate?
-  size_t count;       // How many did we give out?
-} node_storage_t;
+class FlowHeapPriorityQueue : public FlowHeap {
+public:
+  FlowHeapPriorityQueue(size_t capacity);
+  ~FlowHeapPriorityQueue();
+  void enqueue(tree_node_t* node) override;  // not-done
+  tree_node_t* dequeue() override;
+  bool empty() const override;
+  const tree_node_t* peek() const override;
+private:
+  int node_compare(const tree_node_t* a, const tree_node_t* b) const;
+  void repair(size_t index);
+  int valid() const;
 
-// Data structure for heap based priority queue
-typedef struct heapq_struct {
-  tree_node_t** start; // Array of node pointers
-  size_t capacity;     // Maximum allowable queue size
-  size_t count;        // Number enqueued
-} heapq_t;
+  tree_node_t** _start; // Array of node pointers
+  size_t _count;        // Number enqueued
+};
 
-// First in, first-out queue implemented as an array of pointers.
-typedef struct fifo_struct {
-  tree_node_t** start; // Array of node pointers
-  size_t capacity;     // Maximum number of things to enqueue ever
-  size_t count;        // Total enqueued (next one will go into start[count])
-  size_t next;         // Next index to dequeue
-} fifo_t;
+class FlowHeapFifoQueue : public FlowHeap {
+public:
+  FlowHeapFifoQueue(size_t capacity);
+  ~FlowHeapFifoQueue();
+  void enqueue(tree_node_t* node) override;
+  tree_node_t* dequeue() override;
+  bool empty() const override;
+  const tree_node_t* peek() const override;
+private:
+  tree_node_t** _start; // Array of node pointers
+  size_t _count;        // Total enqueued (next one will go into _start[_count])
+  size_t _next;         // Next index to dequeue
+};
 
-// Union struct for passing around queues.
-typedef union queue_union {
-  heapq_t heapq;
-  fifo_t  fifo;
-} queue_t;
+class FlowHeapStdPriorityQueue : public FlowHeap {
+public:
+  FlowHeapStdPriorityQueue(size_t capacity);
+  ~FlowHeapStdPriorityQueue();
+  void enqueue(tree_node_t* node) override;
+  tree_node_t* dequeue() override;
+  bool empty() const override;
+  const tree_node_t* peek() const override;
+private:
+  // Compare fuction to select node with minimum cost.
+  struct tree_node_t_compare {
+    bool operator()(const tree_node_t* a, const tree_node_t* b) const {
+        uint64_t af = a->cost_to_come + a->cost_to_go;
+        uint64_t bf = b->cost_to_come + b->cost_to_go;
+        return af > bf;
+    }
+  };
 
-// Function pointers for either type of queue
-queue_t (*queue_create)(size_t) = 0;
-void (*queue_enqueue)(queue_t*, tree_node_t*) = 0;
-tree_node_t* (*queue_deque)(queue_t*) = 0;
-void (*queue_destroy)(queue_t*) = 0;
-int (*queue_empty)(const queue_t*) = 0;
-const tree_node_t* (*queue_peek)(const queue_t*) = 0;
+  std::priority_queue<tree_node_t *,
+                      std::vector<tree_node_t *>,
+                      tree_node_t_compare> _nodes;
+
+};
+
 
 #endif // FLOW_HEAP_H
